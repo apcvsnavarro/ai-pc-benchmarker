@@ -11,7 +11,6 @@ st.title("🖥️ AI Hardware Consultant")
 st.write("Enter your desired PC components, and my AI agents will scour the internet for live benchmarks to generate a custom compatibility report.")
 
 # Input fields for the user
-api_key = st.text_input("Enter your Google Gemini API Key (starts with AIza...)", type="password")
 user_query = st.text_area("What hardware do you want to test?", "RTX 4060 and Ryzen 5 5600 for 1080p 180Hz gaming")
 
 # --- The App Logic ---
@@ -24,7 +23,7 @@ if st.button("Run Benchmarker"):
         with st.spinner("Agents are scouring the web and reading reviews... This takes about 30-60 seconds."):
             
             # 1. Setup the Brain & Tools
-            os.environ["GEMINI_API_KEY"] = api_key
+            os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
             google_llm = LLM(model="gemini/gemini-2.5-flash")
 
             @tool("Web Search")
