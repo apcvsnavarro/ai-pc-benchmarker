@@ -1,8 +1,7 @@
 import os
 import streamlit as st
 from crewai import Agent, Task, Crew, Process, LLM
-from crewai.tools import tool
-from langchain_community.tools import DuckDuckGoSearchRun
+from crewai_tools import SerperDevTool
 
 # --- UI Setup ---
 # This builds the visual front-end of your web app
@@ -21,7 +20,11 @@ if st.button("Run Benchmarker"):
             
             # 1. Setup the Brain & Tools
             os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+            os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
+            
             google_llm = LLM(model="gemini/gemini-2.5-flash")
+            
+            search_tool = SerperDevTool()
 
             @tool("Web Search")
             def search_tool(query: str) -> str:
