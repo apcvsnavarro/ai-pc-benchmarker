@@ -16,11 +16,8 @@ user_query = st.text_area("What hardware do you want to test?", "RTX 4060 and Ry
 # --- The App Logic ---
 # This button triggers the AI when clicked
 if st.button("Run Benchmarker"):
-    if not api_key:
-        st.error("Please enter your API key first!")
-    else:
-        # A loading spinner so the user knows the AI is thinking
-        with st.spinner("Agents are scouring the web and reading reviews... This takes about 30-60 seconds."):
+    # A loading spinner so the user knows the AI is thinking
+    with st.spinner("Agents are scouring the web and reading reviews... This takes about 30-60 seconds."):
             
             # 1. Setup the Brain & Tools
             os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
