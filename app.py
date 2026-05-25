@@ -23,7 +23,10 @@ if st.button("Run Benchmarker"):
             os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
             
             # Swapped to 1.5-flash for maximum API stability
-            google_llm = LLM(model="gemini/gemini-1.5-flash")
+            google_llm = LLM(
+                model="gemini/gemini-2.5-flash", 
+                api_key=st.secrets["GEMINI_API_KEY"]
+            )
             
             search_tool = SerperDevTool()
 
@@ -60,12 +63,12 @@ if st.button("Run Benchmarker"):
                 agent=consultant
             )
 
-            # 4. Fire up the Crew (WITH THE NEW SPEED LIMIT)
+            # 4. Fire up the Crew
             pc_crew = Crew(
                 agents=[hardware_scout, consultant],
                 tasks=[research_task, report_task],
                 process=Process.sequential,
-                max_rpm=3  # This forces the AI to stay under Google's 5-request limit!
+                max_rpm=3
             )
 
             # Run the AI and store the final answer
