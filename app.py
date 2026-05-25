@@ -26,11 +26,6 @@ if st.button("Run Benchmarker"):
             
             search_tool = SerperDevTool()
 
-            @tool("Web Search")
-            def search_tool(query: str) -> str:
-                """Search the internet for live PC benchmarks, Reddit threads, and hardware reviews."""
-                return DuckDuckGoSearchRun().run(query)
-
             # 2. Define the Agents
             hardware_scout = Agent(
                 role='Hardware Performance Analyst',
