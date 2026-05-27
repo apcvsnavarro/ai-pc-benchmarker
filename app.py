@@ -1,10 +1,11 @@
 import os
+import re
 import streamlit as st
+import plotly.graph_objects as go
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import SerperDevTool
 
 # --- UI Setup & Theme ---
-# Sets the app to full-width dashboard mode
 st.set_page_config(
     page_title="V.A.N.G.U.A.R.D. Hardware AI",
     page_icon="⚡",
@@ -18,7 +19,6 @@ st.markdown("**V**irtual **A**ssistant for **N**ext-Gen **U**pgrades **A**nd **R
 st.markdown("Advanced multi-agent telemetry, web-scouring, and bottleneck analysis for high-performance systems.")
 
 # --- System Architecture Overview ---
-# This replaces the static baseline rig and proves to the panel this is a multi-agent system.
 st.subheader("Active Agent Architecture")
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -89,8 +89,8 @@ if run_button:
             )
 
             report_task = Task(
-                description='Using the scouted data, write a final Markdown report. Include: 1. Recommended Build/Target Performance, 2. Bottleneck Analysis, 3. Thermal/Power Warnings, 4. Final Verdict.',
-                expected_output='A professional 4-section Markdown report.',
+                description='Using the scouted data, write a final Markdown report. Include: 1. Recommended Build/Target Performance, 2. Bottleneck Analysis, 3. Thermal/Power Warnings, 4. Final Verdict. CRITICAL INSTRUCTION: You must end the entire report with EXACTLY this phrase on a new line: "Bottleneck Severity Index: [X]" where [X] is a number from 0 to 100 representing the severity of the bottleneck in this build.',
+                expected_output='A professional 4-section Markdown report ending with the Bottleneck Severity Index number.',
                 agent=consultant
             )
 
@@ -103,20 +103,54 @@ if run_button:
             )
 
             result = pc_crew.kickoff()
+            final_text = str(result)
 
-            # 5. Display the Results on the Web App
+            # 5. Extract the Bottleneck Score using Regex
+            score_match = re.search(r'Bottleneck Severity Index:\s*(\d+)', final_text)
+            bottleneck_score = int(score_match.group(1)) if score_match else 0
+
+            # 6. Display the Results on the Web App
             st.success("V.A.N.G.U.A.R.D. Analysis Complete!")
             
             # Transparent workflow proof
             with st.expander("🔍 View Diagnostics Pipeline Status"):
                 st.write("✅ Web Scrape & Telemetry Gathered")
                 st.write("✅ Bottleneck Synthesis Complete")
-                st.write("✅ Final Render Complete")
+                st.write("✅ UI Gauge Rendered")
             
+            # --- INTERACTIVE GAUGE CHART ---
+            st.markdown("### 🎛️ Diagnostic Telemetry")
+            
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=bottleneck_score,
+                domain={'x': [0, 1], 'y': [0, 1]},
+                title={'text': "Bottleneck Severity", 'font': {'color': "#00FF00", 'size': 24}},
+                number={'font': {'color': "#00FF00"}},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#00FF00"},
+                    'bar': {'color': "#00FF00"},
+                    'bgcolor': "black",
+                    'borderwidth': 2,
+                    'bordercolor': "#00FF00",
+                    'steps': [
+                        {'range': [0, 30], 'color': "rgba(0, 255, 0, 0.2)"},   # Green zone (Good)
+                        {'range': [30, 70], 'color': "rgba(255, 165, 0, 0.4)"}, # Orange zone (Warning)
+                        {'range': [70, 100], 'color': "rgba(255, 0, 0, 0.6)"}   # Red zone (Severe)
+                    ]
+                }
+            ))
+            
+            # Make the background of the chart match your dark theme
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", height=350)
+            
+            # Display the interactive chart
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # --- FINAL REPORT ---
             st.markdown("### 📊 System Diagnostic Report")
-            st.markdown(str(result))
+            st.markdown(final_text)
 
-        # Failsafe for API congestion
         except Exception as e:
             st.error("Agent flow interrupted by API server traffic.")
             st.warning(f"Technical details: {e}")
