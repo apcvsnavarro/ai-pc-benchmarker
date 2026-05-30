@@ -10,11 +10,9 @@ from crewai_tools import SerperDevTool
 # ==========================================
 st.set_page_config(page_title="V.A.N.G.U.A.R.D.", layout="wide", page_icon="⚡")
 
-# Initialize list of all past runs
 if 'diagnostic_history' not in st.session_state:
     st.session_state.diagnostic_history = []
 
-# Initialize the currently viewed run (allows clicking recents!)
 if 'current_run' not in st.session_state:
     st.session_state.current_run = None
 
@@ -47,18 +45,19 @@ def render_bottleneck_gauge(score):
     fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, height=300)
     st.plotly_chart(fig, use_container_width=True)
 
-def render_price_inflation_chart(msrp, current):
-    inflation_pct = ((current - msrp) / msrp) * 100 if msrp > 0 else 0
+def render_price_fluctuation_chart(msrp, current):
+    # Calculate the percentage change between original MSRP and Current Market Price
+    fluctuation_pct = ((current - msrp) / msrp) * 100 if msrp > 0 else 0
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=['Original MSRP', 'Current Market Price'],
         y=[msrp, current],
-        marker_color=['#555555', '#00ff00' if inflation_pct <= 0 else '#ff0000'],
+        marker_color=['#555555', '#00ff00' if fluctuation_pct <= 0 else '#ff0000'],
         text=[f"{msrp} USD", f"{current} USD"], 
         textposition='auto'
     ))
     fig.update_layout(
-        title=f"Price Inflation: {inflation_pct:+.1f}%",
+        title=f"Market Price Fluctuation: {fluctuation_pct:+.1f}%",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white'),
@@ -67,26 +66,41 @@ def render_price_inflation_chart(msrp, current):
     st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# 4. SIDEBAR: MEMORY AUDIT TRAIL
+# 4. SIDEBAR: THE NEW CONTROL PANEL
 # ==========================================
 with st.sidebar:
     st.markdown("## ⚡ V.A.N.G.U.A.R.D.")
     
     if st.button("➕ New Diagnostic", use_container_width=True, type="primary"):
-        st.session_state.current_run = None # Clears the screen for a new prompt
+        st.session_state.current_run = None
         st.rerun()
 
     st.markdown("---")
-    st.markdown("### Recents")
     
+    st.markdown("### ⚙️ Diagnostic Tuning")
+    target_workload = st.selectbox(
+        "Target Workload", 
+        ["General Productivity", "Heavy 3D Rendering", "Monster Hunter Wilds @ 4K", "Local AI/LLM Training", "1080p eSports Gaming"]
+    )
+    max_budget = st.slider("Max Budget (USD)", min_value=500, max_value=8000, value=2500, step=100)
+    
+    st.markdown("---")
+    
+    st.markdown("### 🗂️ Recents")
     if st.session_state.diagnostic_history:
         for i, record in enumerate(reversed(st.session_state.diagnostic_history)):
-            # Turns the sidebar items into clickable buttons that restore past chats!
             if st.button(f"📌 {record['prompt'][:22]}...", key=f"hist_{i}", use_container_width=True):
                 st.session_state.current_run = record
                 st.rerun()
     else:
         st.caption("No recent diagnostics in this session.")
+
+    st.markdown("---")
+    
+    st.markdown("### 📡 System Status")
+    st.caption("🟢 **Scout Agent:** Online")
+    st.caption("🟢 **Consultant Agent:** Online")
+    st.caption("🟢 **Serper Uplink:** Connected")
 
 # ==========================================
 # 5. MAIN UI LAYOUT
@@ -121,20 +135,22 @@ if st.button("Initialize Diagnostics", type="primary"):
                 )
 
                 scout_task = Task(
-                    description=f"Search the web for real-world data regarding: {user_input}. Specifically find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. The original MSRP and current market price of the primary GPU or CPU mentioned.",
+                    description=f"Search the web for real-world data regarding: '{user_input}'. "
+                                f"The user's maximum budget is {max_budget} USD, and their target workload is {target_workload}. "
+                                "Specifically find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. The original MSRP and current market price of the primary GPU or CPU mentioned.",
                     expected_output="A raw data summary of power draw, bottlenecks, and pricing.",
                     agent=scout_agent
                 )
 
-                # UPDATED: Now requires 4 parts, including the Final Verdict
                 consultant_task = Task(
-                    description=f"Using the scout's data, write a detailed 4-part diagnostic report for: {user_input}.\n\n"
+                    description=f"Using the scout's data, write a detailed 4-part diagnostic report for: '{user_input}'.\n\n"
+                                f"Evaluate if this build can handle '{target_workload}' and if it makes sense for a budget of {max_budget} USD.\n\n"
                                 "Format your response with these exact four sections:\n"
                                 "### 1. Compatibility & Bottlenecks\n"
                                 "### 2. Power Constraints\n"
                                 "### 3. Pricing Context\n"
                                 "### 4. Final Verdict\n\n"
-                                "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead (e.g., '999 USD').\n\n"
+                                "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead.\n\n"
                                 "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE VERY END OF YOUR REPORT:\n"
                                 "Bottleneck Score: [Insert integer 0-100 here]\n"
                                 "Estimated Power Draw: [Insert integer here]\n"
@@ -167,7 +183,6 @@ if st.button("Initialize Diagnostics", type="primary"):
             try: current_val = int(re.search(r"GPU Current Price:\s*(\d+)", raw_text).group(1))
             except: current_val = 850
 
-            # Store the new run in memory and set it as the active view
             new_record = {
                 "prompt": user_input,
                 "power": power_val,
@@ -179,7 +194,6 @@ if st.button("Initialize Diagnostics", type="primary"):
             st.session_state.diagnostic_history.append(new_record)
             st.session_state.current_run = new_record
             
-            # Instantly refresh the page to show the new data
             st.rerun()
 
         except Exception as e:
@@ -188,7 +202,6 @@ if st.button("Initialize Diagnostics", type="primary"):
 # ==========================================
 # 6. RENDER THE ACTIVE DASHBOARD
 # ==========================================
-# This block runs if you just searched OR if you clicked a past chat in the sidebar!
 if st.session_state.current_run:
     run = st.session_state.current_run
     
@@ -201,13 +214,12 @@ if st.session_state.current_run:
         st.metric(label="Calculated Power Draw", value=f"{run['power']}W", delta="Check PSU Limits", delta_color="off")
         
     with col2:
-        st.subheader("Market Price Tracker")
-        render_price_inflation_chart(run['msrp'], run['current'])
+        st.subheader("Market Price Fluctuation") # <--- UI Header Updated!
+        render_price_fluctuation_chart(run['msrp'], run['current'])
     
     st.markdown("### Agent Diagnostic Report")
     st.markdown(run['report'])
 
-    # THE NEW DOWNLOAD BUTTON
     st.download_button(
         label="📥 Download Diagnostic Report",
         data=run['report'],
