@@ -19,7 +19,7 @@ if 'diagnostic_history' not in st.session_state:
 # 2. API KEYS SETUP
 # ==========================================
 # Grabbing keys securely from .streamlit/secrets.toml
-# FIXED: Langchain strictly requires the environment variable to be named 'GOOGLE_API_KEY'
+# Langchain strictly requires the environment variable to be named 'GOOGLE_API_KEY'
 os.environ["GOOGLE_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
 
@@ -70,7 +70,7 @@ def render_price_inflation_chart(msrp, current):
 # 4. SIDEBAR: MEMORY AUDIT TRAIL
 # ==========================================
 with st.sidebar:
-    st.header("⚡ Diagnostic History") # Added the lightning bolt emoji directly to the text!
+    st.header("⚡ Diagnostic History") # Fixed the broken image link!
     st.markdown("---")
     
     if st.session_state.diagnostic_history:
