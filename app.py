@@ -19,10 +19,10 @@ if 'diagnostic_history' not in st.session_state:
 # 2. API KEYS SETUP
 # ==========================================
 # Grabbing keys securely from .streamlit/secrets.toml
-os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+# FIXED: Langchain strictly requires the environment variable to be named 'GOOGLE_API_KEY'
+os.environ["GOOGLE_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
 
-# FIXED: Corrected model version to 1.5-flash
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.2)
 search_tool = SerperDevTool()
 
