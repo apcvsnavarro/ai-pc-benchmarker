@@ -49,7 +49,7 @@ def render_price_inflation_chart(msrp, current):
         x=['Original MSRP', 'Current Market Price'],
         y=[msrp, current],
         marker_color=['#555555', '#00ff00' if inflation_pct <= 0 else '#ff0000'],
-        text=[f"${msrp}", f"${current}"],
+        text=[f"{msrp} USD", f"{current} USD"], # Prevent Streamlit math-formatting glitches
         textposition='auto'
     ))
     fig.update_layout(
@@ -65,16 +65,24 @@ def render_price_inflation_chart(msrp, current):
 # 4. SIDEBAR: MEMORY AUDIT TRAIL
 # ==========================================
 with st.sidebar:
-    st.header("⚡ Diagnostic History")
+    st.markdown("## ⚡ V.A.N.G.U.A.R.D.")
+    
+    # The Gemini "New Chat" Button
+    if st.button("➕ New Diagnostic", use_container_width=True, type="primary"):
+        st.session_state.diagnostic_history = []
+        st.rerun()
+
     st.markdown("---")
+    st.markdown("### Recents")
     
     if st.session_state.diagnostic_history:
         for i, record in enumerate(reversed(st.session_state.diagnostic_history)):
-            with st.expander(f"Run {len(st.session_state.diagnostic_history) - i}: {record['prompt'][:20]}..."):
-                st.write(f"**Query:** {record['prompt']}")
-                st.write(f"**Power:** {record['power']}W | **Bottleneck:** {record['bottleneck']}%")
+            with st.expander(f"📌 {record['prompt'][:22]}..."):
+                st.write(f"**Power Draw:** {record['power']}W")
+                st.write(f"**Bottleneck:** {record['bottleneck']}%")
+                st.caption(f"Full query: {record['prompt']}")
     else:
-        st.info("No past diagnostics in this session. Initialize a query to begin.")
+        st.caption("No recent diagnostics in this session.")
 
 # ==========================================
 # 5. MAIN UI LAYOUT
@@ -117,13 +125,18 @@ if st.button("Initialize Diagnostics", type="primary"):
                 )
 
                 consultant_task = Task(
-                    description=f"Using the scout's data, write a short diagnostic report for: {user_input}.\n\n"
-                                "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE END OF YOUR REPORT:\n"
+                    description=f"Using the scout's data, write a detailed 3-part diagnostic report for: {user_input}.\n\n"
+                                "Format your response with these exact three sections:\n"
+                                "### 1. Compatibility & Bottlenecks\n"
+                                "### 2. Power Constraints\n"
+                                "### 3. Pricing Context\n\n"
+                                "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead (e.g., '999 USD').\n\n"
+                                "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE VERY END OF YOUR REPORT:\n"
                                 "Bottleneck Score: [Insert integer 0-100 here]\n"
                                 "Estimated Power Draw: [Insert integer here]\n"
                                 "GPU MSRP: [Insert integer here]\n"
                                 "GPU Current Price: [Insert integer here]\n",
-                    expected_output="A Markdown diagnostic report ending with the four exact mathematical metrics requested.",
+                    expected_output="A 3-part Markdown diagnostic report ending with the four exact mathematical metrics requested.",
                     agent=consultant_agent
                 )
 
