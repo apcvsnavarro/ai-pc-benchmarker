@@ -185,5 +185,4 @@ if st.button("Initialize Diagnostics", type="primary"):
 
         except Exception as e:
             # THIS IS YOUR MS. RHEA DEFENSE CODE
-            st.error("⚠️ Agent flow interrupted by API server traffic. Please wait 30 seconds and try again.")
-            print(f"API Error Log: {e}")
+            st.error(f"⚠️ ACTUAL ERROR LOG: {e}")
