@@ -97,7 +97,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     verbose=True,
                     allow_delegation=False,
                     tools=[search_tool],
-                    llm="gemini/gemini-1.5-flash"
+                    llm="gemini/gemini-2.5-flash"
                 )
 
                 consultant_agent = Agent(
@@ -106,7 +106,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
                     verbose=True,
                     allow_delegation=False,
-                    llm="gemini/gemini-1.5-flash"
+                    llm="gemini/gemini-2.5-flash"
                 )
 
                 # --- TASK DEFINITIONS ---
