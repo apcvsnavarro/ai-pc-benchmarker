@@ -3,3 +3,4 @@ crewai
 crewai-tools
 crewai[google-genai]
 plotly
+langchain-google-genai
