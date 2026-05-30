@@ -70,8 +70,7 @@ def render_price_inflation_chart(msrp, current):
 # 4. SIDEBAR: MEMORY AUDIT TRAIL
 # ==========================================
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/e/e4/Neon_Green_Lightning_Bolt.png", width=50) # Optional cool logo
-    st.header("🕰️ Diagnostic History")
+    st.header("⚡ Diagnostic History") # Added the lightning bolt emoji directly to the text!
     st.markdown("---")
     
     if st.session_state.diagnostic_history:
