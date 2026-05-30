@@ -16,7 +16,6 @@ if 'diagnostic_history' not in st.session_state:
 # ==========================================
 # 2. API KEYS SETUP
 # ==========================================
-# CrewAI's new internal system specifically looks for 'GEMINI_API_KEY'
 os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
 
@@ -98,7 +97,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     verbose=True,
                     allow_delegation=False,
                     tools=[search_tool],
-                    llm="gemini/gemini-2.5-flash"
+                    llm="gemini/gemini-1.5-flash"
                 )
 
                 consultant_agent = Agent(
@@ -107,7 +106,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
                     verbose=True,
                     allow_delegation=False,
-                    llm="gemini/gemini-1.5-flash" # FIXED: CrewAI's native syntax
+                    llm="gemini/gemini-1.5-flash"
                 )
 
                 # --- TASK DEFINITIONS ---
