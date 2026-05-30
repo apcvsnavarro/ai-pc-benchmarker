@@ -10,8 +10,13 @@ from crewai_tools import SerperDevTool
 # ==========================================
 st.set_page_config(page_title="V.A.N.G.U.A.R.D.", layout="wide", page_icon="⚡")
 
+# Initialize list of all past runs
 if 'diagnostic_history' not in st.session_state:
     st.session_state.diagnostic_history = []
+
+# Initialize the currently viewed run (allows clicking recents!)
+if 'current_run' not in st.session_state:
+    st.session_state.current_run = None
 
 # ==========================================
 # 2. API KEYS SETUP
@@ -49,7 +54,7 @@ def render_price_inflation_chart(msrp, current):
         x=['Original MSRP', 'Current Market Price'],
         y=[msrp, current],
         marker_color=['#555555', '#00ff00' if inflation_pct <= 0 else '#ff0000'],
-        text=[f"{msrp} USD", f"{current} USD"], # Prevent Streamlit math-formatting glitches
+        text=[f"{msrp} USD", f"{current} USD"], 
         textposition='auto'
     ))
     fig.update_layout(
@@ -67,9 +72,8 @@ def render_price_inflation_chart(msrp, current):
 with st.sidebar:
     st.markdown("## ⚡ V.A.N.G.U.A.R.D.")
     
-    # The Gemini "New Chat" Button
     if st.button("➕ New Diagnostic", use_container_width=True, type="primary"):
-        st.session_state.diagnostic_history = []
+        st.session_state.current_run = None # Clears the screen for a new prompt
         st.rerun()
 
     st.markdown("---")
@@ -77,10 +81,10 @@ with st.sidebar:
     
     if st.session_state.diagnostic_history:
         for i, record in enumerate(reversed(st.session_state.diagnostic_history)):
-            with st.expander(f"📌 {record['prompt'][:22]}..."):
-                st.write(f"**Power Draw:** {record['power']}W")
-                st.write(f"**Bottleneck:** {record['bottleneck']}%")
-                st.caption(f"Full query: {record['prompt']}")
+            # Turns the sidebar items into clickable buttons that restore past chats!
+            if st.button(f"📌 {record['prompt'][:22]}...", key=f"hist_{i}", use_container_width=True):
+                st.session_state.current_run = record
+                st.rerun()
     else:
         st.caption("No recent diagnostics in this session.")
 
@@ -97,7 +101,6 @@ if st.button("Initialize Diagnostics", type="primary"):
         try:
             with st.status("Agents Scouring Live Web & Analyzing Telemetry...", expanded=True) as status:
                 
-                # --- AGENT DEFINITIONS ---
                 scout_agent = Agent(
                     role="Hardware Telemetry Scout",
                     goal="Scour the live web for real-world benchmarks, thermal limits, power draw (TDP), and pricing data for the given hardware.",
@@ -117,30 +120,30 @@ if st.button("Initialize Diagnostics", type="primary"):
                     llm="gemini/gemini-2.5-flash"
                 )
 
-                # --- TASK DEFINITIONS ---
                 scout_task = Task(
                     description=f"Search the web for real-world data regarding: {user_input}. Specifically find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. The original MSRP and current market price of the primary GPU or CPU mentioned.",
                     expected_output="A raw data summary of power draw, bottlenecks, and pricing.",
                     agent=scout_agent
                 )
 
+                # UPDATED: Now requires 4 parts, including the Final Verdict
                 consultant_task = Task(
-                    description=f"Using the scout's data, write a detailed 3-part diagnostic report for: {user_input}.\n\n"
-                                "Format your response with these exact three sections:\n"
+                    description=f"Using the scout's data, write a detailed 4-part diagnostic report for: {user_input}.\n\n"
+                                "Format your response with these exact four sections:\n"
                                 "### 1. Compatibility & Bottlenecks\n"
                                 "### 2. Power Constraints\n"
-                                "### 3. Pricing Context\n\n"
+                                "### 3. Pricing Context\n"
+                                "### 4. Final Verdict\n\n"
                                 "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead (e.g., '999 USD').\n\n"
                                 "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE VERY END OF YOUR REPORT:\n"
                                 "Bottleneck Score: [Insert integer 0-100 here]\n"
                                 "Estimated Power Draw: [Insert integer here]\n"
                                 "GPU MSRP: [Insert integer here]\n"
                                 "GPU Current Price: [Insert integer here]\n",
-                    expected_output="A 3-part Markdown diagnostic report ending with the four exact mathematical metrics requested.",
+                    expected_output="A 4-part Markdown diagnostic report ending with the four exact mathematical metrics requested.",
                     agent=consultant_agent
                 )
 
-                # --- CREW EXECUTION ---
                 vanguard_crew = Crew(
                     agents=[scout_agent, consultant_agent],
                     tasks=[scout_task, consultant_task],
@@ -150,7 +153,6 @@ if st.button("Initialize Diagnostics", type="primary"):
                 result = vanguard_crew.kickoff()
                 status.update(label="Diagnostics Complete!", state="complete", expanded=False)
 
-            # --- REGEX EXTRACTION (THE SAFETY NET) ---
             raw_text = str(result)
             
             try: bottleneck_val = int(re.search(r"Bottleneck Score:\s*(\d+)", raw_text).group(1))
@@ -165,30 +167,51 @@ if st.button("Initialize Diagnostics", type="primary"):
             try: current_val = int(re.search(r"GPU Current Price:\s*(\d+)", raw_text).group(1))
             except: current_val = 850
 
-            # --- RENDER VISUALS ---
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("System Bottleneck")
-                render_bottleneck_gauge(bottleneck_val)
-                st.metric(label="Calculated Power Draw", value=f"{power_val}W", delta="Check PSU Limits", delta_color="off")
-                
-            with col2:
-                st.subheader("Market Price Tracker")
-                render_price_inflation_chart(msrp_val, current_val)
-            
-            # --- RENDER REPORT ---
-            st.markdown("### Agent Diagnostic Report")
-            st.markdown(raw_text)
-
-            # --- SAVE TO MEMORY ---
-            st.session_state.diagnostic_history.append({
+            # Store the new run in memory and set it as the active view
+            new_record = {
                 "prompt": user_input,
                 "power": power_val,
                 "bottleneck": bottleneck_val,
+                "msrp": msrp_val,
+                "current": current_val,
                 "report": raw_text
-            })
+            }
+            st.session_state.diagnostic_history.append(new_record)
+            st.session_state.current_run = new_record
+            
+            # Instantly refresh the page to show the new data
+            st.rerun()
 
         except Exception as e:
             st.error(f"⚠️ ACTUAL ERROR LOG: {e}")
+
+# ==========================================
+# 6. RENDER THE ACTIVE DASHBOARD
+# ==========================================
+# This block runs if you just searched OR if you clicked a past chat in the sidebar!
+if st.session_state.current_run:
+    run = st.session_state.current_run
+    
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("System Bottleneck")
+        render_bottleneck_gauge(run['bottleneck'])
+        st.metric(label="Calculated Power Draw", value=f"{run['power']}W", delta="Check PSU Limits", delta_color="off")
+        
+    with col2:
+        st.subheader("Market Price Tracker")
+        render_price_inflation_chart(run['msrp'], run['current'])
+    
+    st.markdown("### Agent Diagnostic Report")
+    st.markdown(run['report'])
+
+    # THE NEW DOWNLOAD BUTTON
+    st.download_button(
+        label="📥 Download Diagnostic Report",
+        data=run['report'],
+        file_name=f"VANGUARD_Diagnostic_{run['prompt'][:10]}.txt",
+        mime="text/plain",
+        type="primary"
+    )
