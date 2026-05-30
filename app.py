@@ -46,7 +46,6 @@ def render_bottleneck_gauge(score):
     st.plotly_chart(fig, use_container_width=True)
 
 def render_price_fluctuation_chart(msrp, current):
-    # Calculate the percentage change between original MSRP and Current Market Price
     fluctuation_pct = ((current - msrp) / msrp) * 100 if msrp > 0 else 0
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -80,7 +79,7 @@ with st.sidebar:
     st.markdown("### ⚙️ Diagnostic Tuning")
     target_workload = st.selectbox(
         "Target Workload", 
-        ["General Productivity", "Heavy 3D Rendering", "Monster Hunter Wilds @ 4K", "Local AI/LLM Training", "1080p eSports Gaming"]
+        ["General Productivity", "Heavy 3D Rendering", "Heavy AAA Gaming (Ultra Settings)", "Local AI/LLM Training", "1080p eSports Gaming"]
     )
     max_budget = st.slider("Max Budget (USD)", min_value=500, max_value=8000, value=2500, step=100)
     
@@ -89,7 +88,8 @@ with st.sidebar:
     st.markdown("### 🗂️ Recents")
     if st.session_state.diagnostic_history:
         for i, record in enumerate(reversed(st.session_state.diagnostic_history)):
-            if st.button(f"📌 {record['prompt'][:22]}...", key=f"hist_{i}", use_container_width=True):
+            # UPDATED: Now uses the AI-generated Title instead of the raw prompt!
+            if st.button(f"📌 {record['title']}", key=f"hist_{i}", use_container_width=True):
                 st.session_state.current_run = record
                 st.rerun()
     else:
@@ -142,6 +142,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     agent=scout_agent
                 )
 
+                # UPDATED: Instructed to generate a Report Title
                 consultant_task = Task(
                     description=f"Using the scout's data, write a detailed 4-part diagnostic report for: '{user_input}'.\n\n"
                                 f"Evaluate if this build can handle '{target_workload}' and if it makes sense for a budget of {max_budget} USD.\n\n"
@@ -152,11 +153,12 @@ if st.button("Initialize Diagnostics", type="primary"):
                                 "### 4. Final Verdict\n\n"
                                 "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead.\n\n"
                                 "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE VERY END OF YOUR REPORT:\n"
+                                "Report Title: [Insert a short, catchy 3-to-5 word title for this build here]\n"
                                 "Bottleneck Score: [Insert integer 0-100 here]\n"
                                 "Estimated Power Draw: [Insert integer here]\n"
                                 "GPU MSRP: [Insert integer here]\n"
                                 "GPU Current Price: [Insert integer here]\n",
-                    expected_output="A 4-part Markdown diagnostic report ending with the four exact mathematical metrics requested.",
+                    expected_output="A 4-part Markdown diagnostic report ending with the specific requested metrics.",
                     agent=consultant_agent
                 )
 
@@ -171,6 +173,10 @@ if st.button("Initialize Diagnostics", type="primary"):
 
             raw_text = str(result)
             
+            # UPDATED: Regex safely extracts the AI's custom title
+            try: report_title = re.search(r"Report Title:\s*(.*)", raw_text).group(1).strip()
+            except: report_title = f"{user_input[:15]}... Build"
+
             try: bottleneck_val = int(re.search(r"Bottleneck Score:\s*(\d+)", raw_text).group(1))
             except: bottleneck_val = 50 
             
@@ -185,6 +191,7 @@ if st.button("Initialize Diagnostics", type="primary"):
 
             new_record = {
                 "prompt": user_input,
+                "title": report_title, # Saves the title to memory
                 "power": power_val,
                 "bottleneck": bottleneck_val,
                 "msrp": msrp_val,
@@ -206,6 +213,10 @@ if st.session_state.current_run:
     run = st.session_state.current_run
     
     st.markdown("---")
+    
+    # NEW: Displays the AI-generated title prominently at the top of the dashboard!
+    st.header(f"🖥️ {run['title']}")
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -214,7 +225,7 @@ if st.session_state.current_run:
         st.metric(label="Calculated Power Draw", value=f"{run['power']}W", delta="Check PSU Limits", delta_color="off")
         
     with col2:
-        st.subheader("Market Price Fluctuation") # <--- UI Header Updated!
+        st.subheader("Market Price Fluctuation")
         render_price_fluctuation_chart(run['msrp'], run['current'])
     
     st.markdown("### Agent Diagnostic Report")
