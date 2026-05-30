@@ -1,191 +1,189 @@
-import os
-import re
 import streamlit as st
+import re
+import os
 import plotly.graph_objects as go
-from crewai import Agent, Task, Crew, Process, LLM
+from crewai import Agent, Task, Crew, Process
+from langchain_google_genai import ChatGoogleGenerativeAI
 from crewai_tools import SerperDevTool
 
-# --- UI Setup & Theme ---
-st.set_page_config(
-    page_title="V.A.N.G.U.A.R.D. Hardware AI",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# ==========================================
+# 1. PAGE CONFIG & SESSION MEMORY INIT
+# ==========================================
+st.set_page_config(page_title="V.A.N.G.U.A.R.D.", layout="wide", page_icon="⚡")
 
-# --- Header ---
-st.title("⚡ V.A.N.G.U.A.R.D.")
-st.markdown("**V**irtual **A**ssistant for **N**ext-Gen **U**pgrades **A**nd **R**ig **D**iagnostics")
-st.markdown("Advanced multi-agent telemetry, web-scouring, and bottleneck analysis for high-performance systems.")
+# Initialize Session Memory for the Audit Trail (Ms. Rhea's feature)
+if 'diagnostic_history' not in st.session_state:
+    st.session_state.diagnostic_history = []
 
-# --- System Architecture Overview ---
-st.subheader("Active Agent Architecture")
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.info("**🕵️‍♂️ Hardware Scout Agent**\n\nExecutes live Serper API web-scrapes to gather real-world benchmarks and thermal data.")
-with col2:
-    st.success("**👨‍💻 Lead Consultant Agent**\n\nSynthesizes raw data, detects hardware bottlenecks, calculates power draw, and writes the final diagnostic report.")
-with col3:
-    st.warning("**🧠 Logic Engine**\n\nPowered by Google Gemini 2.5 Flash for high-speed reasoning and step-by-step task delegation.")
+# ==========================================
+# 2. API KEYS SETUP
+# ==========================================
+# Grabbing keys securely from .streamlit/secrets.toml
+os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
 
-st.markdown("---")
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+search_tool = SerperDevTool()
 
-# --- Sidebar Controls ---
-with st.sidebar:
-    st.header("⚙️ System Directives")
-    st.info("Input a specific hardware configuration or a general use-case for the agents to analyze.")
-    
-    user_query = st.text_area(
-        "Hardware Target or Use-Case",
-        "I need a PC for heavy 4K video editing in Premiere Pro, but my budget is only $1,200. What is the best configuration, and what compromises will I have to make?",
-        height=150
+# ==========================================
+# 3. PLOTLY VISUALIZATION FUNCTIONS
+# ==========================================
+def render_bottleneck_gauge(score):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=score,
+        title={'text': "Bottleneck Severity %", 'font': {'color': 'white'}},
+        gauge={
+            'axis': {'range': [None, 100], 'tickcolor': "white"},
+            'bar': {'color': "#00ff00" if score < 20 else ("#ffff00" if score < 50 else "#ff0000")},
+            'bgcolor': "black",
+            'steps': [
+                {'range': [0, 20], 'color': "rgba(0, 255, 0, 0.1)"},
+                {'range': [20, 50], 'color': "rgba(255, 255, 0, 0.1)"},
+                {'range': [50, 100], 'color': "rgba(255, 0, 0, 0.1)"}],
+        }
+    ))
+    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, height=300)
+    st.plotly_chart(fig, use_container_width=True)
+
+def render_price_inflation_chart(msrp, current):
+    inflation_pct = ((current - msrp) / msrp) * 100 if msrp > 0 else 0
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=['Original MSRP', 'Current Market Price'],
+        y=[msrp, current],
+        marker_color=['#555555', '#00ff00' if inflation_pct <= 0 else '#ff0000'],
+        text=[f"${msrp}", f"${current}"],
+        textposition='auto'
+    ))
+    fig.update_layout(
+        title=f"Price Inflation: {inflation_pct:+.1f}%",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        height=300
     )
-    
-    run_button = st.button("Initialize V.A.N.G.U.A.R.D. 🚀", use_container_width=True)
-    
+    st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# 4. SIDEBAR: MEMORY AUDIT TRAIL
+# ==========================================
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/e/e4/Neon_Green_Lightning_Bolt.png", width=50) # Optional cool logo
+    st.header("🕰️ Diagnostic History")
     st.markdown("---")
-    st.caption("Agent Framework: CrewAI")
+    
+    if st.session_state.diagnostic_history:
+        for i, record in enumerate(reversed(st.session_state.diagnostic_history)):
+            with st.expander(f"Run {len(st.session_state.diagnostic_history) - i}: {record['prompt'][:20]}..."):
+                st.write(f"**Query:** {record['prompt']}")
+                st.write(f"**Power:** {record['power']}W | **Bottleneck:** {record['bottleneck']}%")
+    else:
+        st.info("No past diagnostics in this session. Initialize a query to begin.")
 
-# --- The App Logic ---
-if run_button:
-    with st.spinner("Agents are scouring benchmarks, evaluating components, and calculating telemetry..."):
+# ==========================================
+# 5. MAIN UI LAYOUT
+# ==========================================
+st.title("⚡ V.A.N.G.U.A.R.D.")
+st.subheader("Virtual Assistant for Next-Gen Upgrades And Rig Diagnostics")
+
+user_input = st.text_input("Enter your hardware configuration or build idea:", placeholder="e.g., RTX 4090 with an Intel Core i9 on a 400W PSU")
+
+if st.button("Initialize Diagnostics", type="primary"):
+    if user_input:
         try:
-            # 1. Setup the Brain & Tools
-            os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
-            os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
-            
-            google_llm = LLM(
-                model="gemini/gemini-2.5-flash",
-                api_key=st.secrets["GEMINI_API_KEY"]
-            )
-            
-            search_tool = SerperDevTool()
-
-            # 2. Define the Agents
-            hardware_scout = Agent(
-                role='Hardware Performance Analyst',
-                goal='Search the web for live benchmarks, thermal limits, and hardware recommendations for the user query.',
-                backstory='You are a senior PC hardware reviewer specializing in high-refresh-rate optimization and professional workstation builds.',
-                llm=google_llm,
-                verbose=False,
-                allow_delegation=False,
-                tools=[search_tool]
-            )
-
-            consultant = Agent(
-                role='Lead IT Hardware Consultant',
-                goal='Synthesize raw benchmark data into a professional compatibility, recommendation, and bottleneck report.',
-                backstory='Trusted by enthusiasts and professionals to give brutally honest advice on system bottlenecks, power supply constraints, and budget compromises.',
-                llm=google_llm,
-                verbose=False,
-                allow_delegation=False
-            )
-
-            # 3. Define the Tasks
-            research_task = Task(
-                description=f'Search for current benchmarks, hardware combinations, and technical reviews testing this query: {user_query}.',
-                expected_output='A raw data summary of recommended parts, framerates/render times, and noted bottlenecks.',
-                agent=hardware_scout
-            )
-
-            report_task = Task(
-                description='Using the scouted data, write a final Markdown report. Include: 1. Recommended Build/Target Performance, 2. Bottleneck Analysis, 3. Thermal/Power Warnings, 4. Final Verdict. CRITICAL INSTRUCTION: You must end the entire report with EXACTLY these two phrases on new lines: \n"Bottleneck Severity Index: [X]" (where [X] is a number from 0 to 100).\n"Estimated Power Draw: [Y]" (where [Y] is the estimated total system wattage as a pure number).',
-                expected_output='A professional 4-section Markdown report ending with the Bottleneck Severity Index and Estimated Power Draw numbers.',
-                agent=consultant
-            )
-
-            # 4. Fire up the Crew
-            pc_crew = Crew(
-                agents=[hardware_scout, consultant],
-                tasks=[research_task, report_task],
-                process=Process.sequential,
-                max_rpm=3
-            )
-
-            result = pc_crew.kickoff()
-            final_text = str(result)
-
-            # 5. Extract the Telemetry using Regex
-            # Extract Bottleneck Score
-            score_match = re.search(r'Bottleneck Severity Index:\s*(\d+)', final_text)
-            bottleneck_score = int(score_match.group(1)) if score_match else 0
-            
-            # Extract Power Draw
-            power_match = re.search(r'Estimated Power Draw:\s*(\d+)', final_text)
-            power_draw = int(power_match.group(1)) if power_match else 450 # Default fallback
-            psu_recommendation = power_draw + 200 # Add safe 200W headroom
-
-            # 6. Display the Results on the Web App
-            st.success("V.A.N.G.U.A.R.D. Analysis Complete!")
-            
-            # Transparent workflow proof
-            with st.expander("🔍 View Diagnostics Pipeline Status"):
-                st.write("✅ Web Scrape & Telemetry Gathered")
-                st.write("✅ System Power Requirements Calculated")
-                st.write("✅ Bottleneck Synthesis Complete")
-                st.write("✅ UI Dashboard Rendered")
-            
-            # --- INTERACTIVE TELEMETRY DASHBOARD ---
-            st.markdown("### 🎛️ Diagnostic Telemetry")
-            
-            # Power Metrics Row
-            met_col1, met_col2 = st.columns(2)
-            with met_col1:
-                st.metric(
-                    label="⚡ Estimated Peak Power Draw", 
-                    value=f"{power_draw} Watts", 
-                    delta=f"Recommended PSU: {psu_recommendation}W+", 
-                    delta_color="inverse"
+            with st.status("Agents Scouring Live Web & Analyzing Telemetry...", expanded=True) as status:
+                
+                # --- AGENT DEFINITIONS ---
+                scout_agent = Agent(
+                    role="Hardware Telemetry Scout",
+                    goal="Scour the live web for real-world benchmarks, thermal limits, power draw (TDP), and pricing data for the given hardware.",
+                    backstory="You are an expert PC hardware researcher. You find accurate, up-to-date data for PC parts, including their original MSRP and their current market price.",
+                    verbose=True,
+                    allow_delegation=False,
+                    tools=[search_tool],
+                    llm=llm
                 )
-            with met_col2:
-                # Changes color dynamically based on how bad the bottleneck is
-                status_text = "Severe Bottleneck" if bottleneck_score > 70 else "Optimal Pairing" if bottleneck_score < 30 else "Moderate Bottleneck"
-                st.metric(
-                    label="⚠️ Architecture Status",
-                    value=f"Index: {bottleneck_score}/100",
-                    delta=status_text,
-                    delta_color="inverse" if bottleneck_score > 70 else "normal"
+
+                consultant_agent = Agent(
+                    role="Lead IT Consultant",
+                    goal="Analyze the scout's data, calculate bottlenecks, verify power constraints, and output precise diagnostic telemetry.",
+                    backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
+                    verbose=True,
+                    allow_delegation=False,
+                    llm=llm
                 )
+
+                # --- TASK DEFINITIONS ---
+                scout_task = Task(
+                    description=f"Search the web for real-world data regarding: {user_input}. Specifically find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. The original MSRP and current market price of the primary GPU or CPU mentioned.",
+                    expected_output="A raw data summary of power draw, bottlenecks, and pricing.",
+                    agent=scout_agent
+                )
+
+                consultant_task = Task(
+                    description=f"Using the scout's data, write a short diagnostic report for: {user_input}.\n\n"
+                                "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE END OF YOUR REPORT:\n"
+                                "Bottleneck Score: [Insert integer 0-100 here]\n"
+                                "Estimated Power Draw: [Insert integer here]\n"
+                                "GPU MSRP: [Insert integer here]\n"
+                                "GPU Current Price: [Insert integer here]\n",
+                    expected_output="A Markdown diagnostic report ending with the four exact mathematical metrics requested.",
+                    agent=consultant_agent
+                )
+
+                # --- CREW EXECUTION ---
+                vanguard_crew = Crew(
+                    agents=[scout_agent, consultant_agent],
+                    tasks=[scout_task, consultant_task],
+                    process=Process.sequential
+                )
+                
+                result = vanguard_crew.kickoff()
+                status.update(label="Diagnostics Complete!", state="complete", expanded=False)
+
+            # --- REGEX EXTRACTION (THE SAFETY NET) ---
+            raw_text = str(result)
             
-            # Bottleneck Gauge Chart
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=bottleneck_score,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Bottleneck Severity", 'font': {'color': "#00FF00", 'size': 18}},
-                number={'font': {'color': "#00FF00"}},
-                gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#00FF00"},
-                    'bar': {'color': "#00FF00"},
-                    'bgcolor': "black",
-                    'borderwidth': 2,
-                    'bordercolor': "#00FF00",
-                    'steps': [
-                        {'range': [0, 30], 'color': "rgba(0, 255, 0, 0.2)"},   # Green zone
-                        {'range': [30, 70], 'color': "rgba(255, 165, 0, 0.4)"}, # Orange zone
-                        {'range': [70, 100], 'color': "rgba(255, 0, 0, 0.6)"}   # Red zone
-                    ]
-                }
-            ))
+            # Using Try/Except inside regex to provide safe fallbacks if the LLM hallucinates
+            try: bottleneck_val = int(re.search(r"Bottleneck Score:\s*(\d+)", raw_text).group(1))
+            except: bottleneck_val = 50 
             
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", height=300, margin=dict(l=20, r=20, t=50, b=20))
-            st.plotly_chart(fig, use_container_width=True)
+            try: power_val = int(re.search(r"Estimated Power Draw:\s*(\d+)", raw_text).group(1))
+            except: power_val = 450
             
-            # --- FINAL REPORT ---
-            st.markdown("### 📊 System Diagnostic Report")
-            st.markdown(final_text)
+            try: msrp_val = int(re.search(r"GPU MSRP:\s*(\d+)", raw_text).group(1))
+            except: msrp_val = 800
             
-            # --- EXPORT BUTTON ---
+            try: current_val = int(re.search(r"GPU Current Price:\s*(\d+)", raw_text).group(1))
+            except: current_val = 850
+
+            # --- RENDER VISUALS ---
             st.markdown("---")
-            st.download_button(
-                label="📥 Download V.A.N.G.U.A.R.D. Diagnostic Report",
-                data=final_text,
-                file_name="VANGUARD_Hardware_Report.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("System Bottleneck")
+                render_bottleneck_gauge(bottleneck_val)
+                st.metric(label="Calculated Power Draw", value=f"{power_val}W", delta="Check PSU Limits", delta_color="off")
+                
+            with col2:
+                st.subheader("Market Price Tracker")
+                render_price_inflation_chart(msrp_val, current_val)
+            
+            # --- RENDER REPORT ---
+            st.markdown("### Agent Diagnostic Report")
+            st.markdown(raw_text)
+
+            # --- SAVE TO MEMORY ---
+            st.session_state.diagnostic_history.append({
+                "prompt": user_input,
+                "power": power_val,
+                "bottleneck": bottleneck_val,
+                "report": raw_text
+            })
 
         except Exception as e:
-            st.error("Agent flow interrupted by API server traffic.")
-            st.warning(f"Technical details: {e}")
-            st.info("The external API is temporarily congested. Please wait 30 seconds and click Initialize again.")
+            # THIS IS YOUR MS. RHEA DEFENSE CODE
+            st.error("⚠️ Agent flow interrupted by API server traffic. Please wait 30 seconds and try again.")
+            print(f"API Error Log: {e}")
