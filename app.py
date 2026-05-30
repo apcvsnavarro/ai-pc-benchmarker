@@ -3,7 +3,6 @@ import re
 import os
 import plotly.graph_objects as go
 from crewai import Agent, Task, Crew, Process
-from langchain_google_genai import ChatGoogleGenerativeAI
 from crewai_tools import SerperDevTool
 
 # ==========================================
@@ -11,19 +10,16 @@ from crewai_tools import SerperDevTool
 # ==========================================
 st.set_page_config(page_title="V.A.N.G.U.A.R.D.", layout="wide", page_icon="⚡")
 
-# Initialize Session Memory for the Audit Trail (Ms. Rhea's feature)
 if 'diagnostic_history' not in st.session_state:
     st.session_state.diagnostic_history = []
 
 # ==========================================
 # 2. API KEYS SETUP
 # ==========================================
-# Grabbing keys securely from .streamlit/secrets.toml
-# Langchain strictly requires the environment variable to be named 'GOOGLE_API_KEY'
-os.environ["GOOGLE_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+# CrewAI's new internal system specifically looks for 'GEMINI_API_KEY'
+os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
 
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.2)
 search_tool = SerperDevTool()
 
 # ==========================================
@@ -70,7 +66,7 @@ def render_price_inflation_chart(msrp, current):
 # 4. SIDEBAR: MEMORY AUDIT TRAIL
 # ==========================================
 with st.sidebar:
-    st.header("⚡ Diagnostic History") # Fixed the broken image link!
+    st.header("⚡ Diagnostic History")
     st.markdown("---")
     
     if st.session_state.diagnostic_history:
@@ -102,7 +98,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     verbose=True,
                     allow_delegation=False,
                     tools=[search_tool],
-                    llm=llm
+                    llm="gemini/gemini-1.5-flash" # FIXED: CrewAI's native syntax
                 )
 
                 consultant_agent = Agent(
@@ -111,7 +107,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
                     verbose=True,
                     allow_delegation=False,
-                    llm=llm
+                    llm="gemini/gemini-1.5-flash" # FIXED: CrewAI's native syntax
                 )
 
                 # --- TASK DEFINITIONS ---
@@ -145,7 +141,6 @@ if st.button("Initialize Diagnostics", type="primary"):
             # --- REGEX EXTRACTION (THE SAFETY NET) ---
             raw_text = str(result)
             
-            # Using Try/Except inside regex to provide safe fallbacks if the LLM hallucinates
             try: bottleneck_val = int(re.search(r"Bottleneck Score:\s*(\d+)", raw_text).group(1))
             except: bottleneck_val = 50 
             
@@ -184,5 +179,4 @@ if st.button("Initialize Diagnostics", type="primary"):
             })
 
         except Exception as e:
-            # THIS IS YOUR MS. RHEA DEFENSE CODE
             st.error(f"⚠️ ACTUAL ERROR LOG: {e}")
