@@ -98,7 +98,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     verbose=True,
                     allow_delegation=False,
                     tools=[search_tool],
-                    llm="gemini/gemini-1.5-flash" # FIXED: CrewAI's native syntax
+                    llm="gemini/gemini-2.5-flash"
                 )
 
                 consultant_agent = Agent(
