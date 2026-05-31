@@ -9,30 +9,24 @@ This project utilizes a sequential agent architecture to process user requests, 
 
 ```mermaid
 graph TD
-    %% Define Styles
-    classDef user fill:#2b3035,stroke:#4caf50,stroke-width:2px,color:#fff
-    classDef agent fill:#1e1e1e,stroke:#2196f3,stroke-width:2px,color:#fff
-    classDef api fill:#333333,stroke:#ff9800,stroke-width:2px,color:#fff
-    classDef ui fill:#2b3035,stroke:#9c27b0,stroke-width:2px,color:#fff
-
     %% Flowchart Nodes
-    A[🧑‍💻 User Input<br/>Streamlit UI] ::: user
+    A[🧑‍💻 User Input - Streamlit UI]
     
     subgraph Multi-Agent System
-    B(🤖 CrewAI Orchestrator) ::: agent
-    C{🕵️ Agent 1: Scout} ::: agent
-    E{👨‍💼 Agent 2: Consultant} ::: agent
+        B(🤖 CrewAI Orchestrator)
+        C{🕵️ Agent 1: Scout}
+        E{👨‍💼 Agent 2: Consultant}
     end
     
-    D[🌐 Serper Dev API<br/>Live Web Scraping] ::: api
-    F[🧠 LLM Engine<br/>Gemini 2.5 / Groq Llama 3] ::: api
+    D[🌐 Serper Dev API - Live Web Scraping]
+    F[🧠 LLM Engine - Gemini 2.5 & Groq Llama 3]
     
-    G[⚙️ Regex Extractor<br/>Math Parsing] ::: ui
+    G[⚙️ Regex Extractor - Math Parsing]
     
     subgraph Dashboard Output
-    H[📊 Plotly Gauges & Charts] ::: ui
-    I[🗂️ Session Memory Recents] ::: ui
-    J[📥 Downloadable TXT Report] ::: ui
+        H[📊 Plotly Gauges & Charts]
+        I[🗂️ Session Memory Recents]
+        J[📥 Downloadable TXT Report]
     end
 
     %% Routing / Connections
@@ -45,3 +39,15 @@ graph TD
     G -->|Routes specific integers| H
     G -->|Saves state| I
     G -->|Formats Markdown| J
+
+    %% Define Styles (Safe Method)
+    classDef userNode fill:#2b3035,stroke:#4caf50,stroke-width:2px,color:#fff
+    classDef agentNode fill:#1e1e1e,stroke:#2196f3,stroke-width:2px,color:#fff
+    classDef apiNode fill:#333333,stroke:#ff9800,stroke-width:2px,color:#fff
+    classDef uiNode fill:#2b3035,stroke:#9c27b0,stroke-width:2px,color:#fff
+
+    %% Apply Styles (Safe Method)
+    class A userNode
+    class B,C,E agentNode
+    class D,F apiNode
+    class G,H,I,J uiNode
