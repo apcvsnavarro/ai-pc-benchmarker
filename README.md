@@ -6,23 +6,42 @@ V.A.N.G.U.A.R.D. is an autonomous, multi-agent AI system designed to automate PC
 
 ## System Architecture & Libraries
 This project utilizes a sequential agent architecture to process user requests, scour the live web, and render diagnostic telemetry.
-* **Streamlit:** Powers the frontend dashboard and interactive UI.
-* **CrewAI:** Orchestrates the multi-agent logic, assigning specific roles and sequential tasks to the AI agents.
-* **Google Gemini 2.5 Flash (`crewai[google-genai]`):** Acts as the core reasoning LLM, chosen for its high-speed processing and advanced logic routing.
-* **Serper API (`crewai-tools`):** Equips the Scout Agent with live Google Search capabilities to pull real-time benchmarks.
-* **Plotly:** Renders the interactive "Bottleneck Severity" gauge chart based on metrics extracted via Python Regular Expressions (Regex).
 
-## Setup Instructions
+```mermaid
+graph TD
+    %% Define Styles
+    classDef user fill:#2b3035,stroke:#4caf50,stroke-width:2px,color:#fff
+    classDef agent fill:#1e1e1e,stroke:#2196f3,stroke-width:2px,color:#fff
+    classDef api fill:#333333,stroke:#ff9800,stroke-width:2px,color:#fff
+    classDef ui fill:#2b3035,stroke:#9c27b0,stroke-width:2px,color:#fff
 
-**1. Clone the repository**
-Download the code to your local machine.
+    %% Flowchart Nodes
+    A[🧑‍💻 User Input<br/>Streamlit UI] ::: user
+    
+    subgraph Multi-Agent System
+    B(🤖 CrewAI Orchestrator) ::: agent
+    C{🕵️ Agent 1: Scout} ::: agent
+    E{👨‍💼 Agent 2: Consultant} ::: agent
+    end
+    
+    D[🌐 Serper Dev API<br/>Live Web Scraping] ::: api
+    F[🧠 LLM Engine<br/>Gemini 2.5 / Groq Llama 3] ::: api
+    
+    G[⚙️ Regex Extractor<br/>Math Parsing] ::: ui
+    
+    subgraph Dashboard Output
+    H[📊 Plotly Gauges & Charts] ::: ui
+    I[🗂️ Session Memory Recents] ::: ui
+    J[📥 Downloadable TXT Report] ::: ui
+    end
 
-**2. Install Dependencies**
-Ensure you have Python installed, then install the required libraries:
-`pip install -r requirements.txt`
-
-**3. Configure Environment Variables**
-Create a `.streamlit` folder in the root directory of the project. Inside that folder, create a file named `secrets.toml` and add your API keys:
-```toml
-GEMINI_API_KEY = "your_google_api_key"
-SERPER_API_KEY = "your_serper_api_key"
+    %% Routing / Connections
+    A -->|Target Workload, Budget, Hardware| B
+    B -->|Assigns Data Gathering| C
+    C <-->|Searches real-time benchmarks| D
+    C -->|Passes raw web data| E
+    E <-->|Performs math & logic| F
+    E -->|Generates 4-Part Report| G
+    G -->|Routes specific integers| H
+    G -->|Saves state| I
+    G -->|Formats Markdown| J
