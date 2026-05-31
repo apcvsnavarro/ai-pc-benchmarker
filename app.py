@@ -16,11 +16,18 @@ if 'diagnostic_history' not in st.session_state:
 if 'current_run' not in st.session_state:
     st.session_state.current_run = None
 
+if 'api_key_index' not in st.session_state:
+    st.session_state.api_key_index = 0
+
 # ==========================================
 # 2. API KEYS SETUP
 # ==========================================
-os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 os.environ["SERPER_API_KEY"] = st.secrets["SERPER_API_KEY"]
+gemini_keys = st.secrets["GEMINI_API_KEYS"]
+
+# Safely load Groq if it exists in secrets
+if "GROQ_API_KEY" in st.secrets:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 search_tool = SerperDevTool()
 
@@ -77,6 +84,10 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### ⚙️ Diagnostic Tuning")
+    
+    # NEW: The AI Engine Selector!
+    ai_engine = st.selectbox("AI Engine", ["Gemini 2.5 Flash", "Llama 3 (Groq)"])
+    
     target_workload = st.selectbox(
         "Target Workload", 
         ["General Productivity", "Heavy 3D Rendering", "Heavy AAA Gaming (Ultra Settings)", "Local AI/LLM Training", "1080p eSports Gaming"]
@@ -97,8 +108,13 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### 📡 System Status")
-    st.caption("🟢 **Scout Agent:** Online")
-    st.caption("🟢 **Consultant Agent:** Online")
+    
+    # Dynamically updates the status based on your engine choice
+    if ai_engine == "Gemini 2.5 Flash":
+        st.caption(f"🟢 **Active Engine:** Gemini Slot [{st.session_state.api_key_index + 1}/{len(gemini_keys)}]")
+    else:
+        st.caption("🟢 **Active Engine:** Llama 3 (Groq)")
+        
     st.caption("🟢 **Serper Uplink:** Connected")
 
 # ==========================================
@@ -111,68 +127,98 @@ user_input = st.text_input("Enter your hardware configuration or build idea:", p
 
 if st.button("Initialize Diagnostics", type="primary"):
     if user_input:
-        try:
-            with st.status("Agents Scouring Live Web & Analyzing Telemetry...", expanded=True) as status:
+        
+        success = False
+        attempts = 0
+        
+        # If Gemini, use all 5 slots. If Groq, just 1 attempt is needed.
+        max_attempts = len(gemini_keys) if ai_engine == "Gemini 2.5 Flash" else 1
+        
+        with st.status(f"Agents Scouring Live Web via {ai_engine}...", expanded=True) as status:
+            
+            while attempts < max_attempts and not success:
                 
-                scout_agent = Agent(
-                    role="Hardware Telemetry Scout",
-                    goal="Scour the live web for real-world benchmarks, thermal limits, power draw (TDP), and pricing data for the given hardware.",
-                    backstory="You are an expert PC hardware researcher. You find accurate, up-to-date data for PC parts, including their original MSRP and their current market price.",
-                    verbose=True,
-                    allow_delegation=False,
-                    tools=[search_tool],
-                    llm="gemini/gemini-2.5-flash",
-                    max_iter=3 # Brakes added here
-                )
-
-                consultant_agent = Agent(
-                    role="Lead IT Consultant",
-                    goal="Analyze the scout's data, calculate bottlenecks, verify power constraints, and output precise diagnostic telemetry.",
-                    backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
-                    verbose=True,
-                    allow_delegation=False,
-                    llm="gemini/gemini-2.5-flash",
-                    max_iter=3 # Brakes added here
-                )
-
-                scout_task = Task(
-                    description=f"Analyze the user's request: '{user_input}'. "
-                                f"Their budget is {max_budget} USD, and target workload is {target_workload}. "
-                                "CRITICAL INSTRUCTION: If the user's request is vague or does not specify exact CPU/GPU models, YOU MUST immediately decide on a specific, realistic CPU and GPU combination that fits their budget. "
-                                "Once the exact hardware is decided, search the web to find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. Original MSRP and current market price for that specific hardware.",
-                    expected_output="A raw data summary of the specific CPU/GPU chosen, their power draw, bottlenecks, and pricing.",
-                    agent=scout_agent
-                )
-
-                consultant_task = Task(
-                    description=f"Using the scout's data, write a detailed 4-part diagnostic report for: '{user_input}'.\n\n"
-                                f"Evaluate if this build can handle '{target_workload}' and if it makes sense for a budget of {max_budget} USD.\n\n"
-                                "Format your response with these exact four sections:\n"
-                                "### 1. Compatibility & Bottlenecks\n"
-                                "### 2. Power Constraints\n"
-                                "### 3. Pricing Context\n"
-                                "### 4. Final Verdict\n\n"
-                                "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead.\n\n"
-                                "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE VERY END OF YOUR REPORT:\n"
-                                "Report Title: [Insert a short, catchy 3-to-5 word title for this build here]\n"
-                                "Bottleneck Score: [Insert integer 0-100 here]\n"
-                                "Estimated Power Draw: [Insert integer here]\n"
-                                "GPU MSRP: [Insert integer here]\n"
-                                "GPU Current Price: [Insert integer here]\n",
-                    expected_output="A 4-part Markdown diagnostic report ending with the specific requested metrics.",
-                    agent=consultant_agent
-                )
-
-                vanguard_crew = Crew(
-                    agents=[scout_agent, consultant_agent],
-                    tasks=[scout_task, consultant_task],
-                    process=Process.sequential,
-                    max_rpm=10 # <--- THE HOLY GRAIL GLOBAL SPEED LIMIT FIX
-                )
+                # --- DYNAMIC ENGINE ROUTING ---
+                if ai_engine == "Gemini 2.5 Flash":
+                    current_api_key = gemini_keys[st.session_state.api_key_index]
+                    os.environ["GEMINI_API_KEY"] = current_api_key
+                    llm_model = "gemini/gemini-2.5-flash"
+                else:
+                    llm_model = "groq/llama3-8b-8192"
                 
-                result = vanguard_crew.kickoff()
-                status.update(label="Diagnostics Complete!", state="complete", expanded=False)
+                try:
+                    scout_agent = Agent(
+                        role="Hardware Telemetry Scout",
+                        goal="Scour the live web for real-world benchmarks, thermal limits, power draw (TDP), and pricing data for the given hardware.",
+                        backstory="You are an expert PC hardware researcher. You find accurate, up-to-date data for PC parts, including their original MSRP and their current market price.",
+                        verbose=True,
+                        allow_delegation=False,
+                        tools=[search_tool],
+                        llm=llm_model, # <--- INJECTS YOUR CHOSEN AI ENGINE HERE
+                        max_iter=3
+                    )
 
+                    consultant_agent = Agent(
+                        role="Lead IT Consultant",
+                        goal="Analyze the scout's data, calculate bottlenecks, verify power constraints, and output precise diagnostic telemetry.",
+                        backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
+                        verbose=True,
+                        allow_delegation=False,
+                        llm=llm_model, # <--- INJECTS YOUR CHOSEN AI ENGINE HERE
+                        max_iter=3
+                    )
+
+                    scout_task = Task(
+                        description=f"Analyze the user's request: '{user_input}'. "
+                                    f"Their budget is {max_budget} USD, and target workload is {target_workload}. "
+                                    "CRITICAL INSTRUCTION: If the user's request is vague or does not specify exact CPU/GPU models, YOU MUST immediately decide on a specific, realistic CPU and GPU combination that fits their budget. "
+                                    "Once the exact hardware is decided, search the web to find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. Original MSRP and current market price for that specific hardware.",
+                        expected_output="A raw data summary of the specific CPU/GPU chosen, their power draw, bottlenecks, and pricing.",
+                        agent=scout_agent
+                    )
+
+                    consultant_task = Task(
+                        description=f"Using the scout's data, write a detailed 4-part diagnostic report for: '{user_input}'.\n\n"
+                                    f"Evaluate if this build can handle '{target_workload}' and if it makes sense for a budget of {max_budget} USD.\n\n"
+                                    "Format your response with these exact four sections:\n"
+                                    "### 1. Compatibility & Bottlenecks\n"
+                                    "### 2. Power Constraints\n"
+                                    "### 3. Pricing Context\n"
+                                    "### 4. Final Verdict\n\n"
+                                    "CRITICAL FORMATTING RULE: DO NOT use the '$' symbol anywhere in your text. Use the word 'USD' instead.\n\n"
+                                    "CRITICAL INSTRUCTIONS - YOU MUST INCLUDE THESE EXACT LINES AT THE VERY END OF YOUR REPORT:\n"
+                                    "Report Title: [Insert a short, catchy 3-to-5 word title for this build here]\n"
+                                    "Bottleneck Score: [Insert integer 0-100 here]\n"
+                                    "Estimated Power Draw: [Insert integer here]\n"
+                                    "GPU MSRP: [Insert integer here]\n"
+                                    "GPU Current Price: [Insert integer here]\n",
+                        expected_output="A 4-part Markdown diagnostic report ending with the specific requested metrics.",
+                        agent=consultant_agent
+                    )
+
+                    vanguard_crew = Crew(
+                        agents=[scout_agent, consultant_agent],
+                        tasks=[scout_task, consultant_task],
+                        process=Process.sequential,
+                        max_rpm=10 
+                    )
+                    
+                    result = vanguard_crew.kickoff()
+                    success = True 
+                    status.update(label="Diagnostics Complete!", state="complete", expanded=False)
+
+                except Exception as e:
+                    error_msg = str(e)
+                    # ONLY rotate if Gemini hit a rate limit
+                    if ai_engine == "Gemini 2.5 Flash" and ("429" in error_msg or "quota" in error_msg.lower() or "exhausted" in error_msg.lower()):
+                        st.session_state.api_key_index = (st.session_state.api_key_index + 1) % len(gemini_keys)
+                        attempts += 1
+                        st.write(f"⚠️ Speed limit hit. Auto-rotating to Gemini Slot [{st.session_state.api_key_index + 1}/{len(gemini_keys)}]...")
+                    else:
+                        st.error(f"⚠️ ACTUAL ERROR LOG: {e}")
+                        break
+
+        if success:
             raw_text = str(result)
             
             try: report_title = re.search(r"Report Title:\s*(.*)", raw_text).group(1).strip()
@@ -203,9 +249,6 @@ if st.button("Initialize Diagnostics", type="primary"):
             st.session_state.current_run = new_record
             
             st.rerun()
-
-        except Exception as e:
-            st.error(f"⚠️ ACTUAL ERROR LOG: {e}")
 
 # ==========================================
 # 6. RENDER THE ACTIVE DASHBOARD
