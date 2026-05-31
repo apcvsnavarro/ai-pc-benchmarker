@@ -122,7 +122,7 @@ if st.button("Initialize Diagnostics", type="primary"):
                     allow_delegation=False,
                     tools=[search_tool],
                     llm="gemini/gemini-2.5-flash",
-                    max_iter=3 # <--- SPEED LIMIT FIX APPLIED HERE
+                    max_iter=3 # Brakes added here
                 )
 
                 consultant_agent = Agent(
@@ -132,14 +132,15 @@ if st.button("Initialize Diagnostics", type="primary"):
                     verbose=True,
                     allow_delegation=False,
                     llm="gemini/gemini-2.5-flash",
-                    max_iter=3 # <--- SPEED LIMIT FIX APPLIED HERE
+                    max_iter=3 # Brakes added here
                 )
 
                 scout_task = Task(
-                    description=f"Search the web for real-world data regarding: '{user_input}'. "
-                                f"The user's maximum budget is {max_budget} USD, and their target workload is {target_workload}. "
-                                "Specifically find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. The original MSRP and current market price of the primary GPU or CPU mentioned.",
-                    expected_output="A raw data summary of power draw, bottlenecks, and pricing.",
+                    description=f"Analyze the user's request: '{user_input}'. "
+                                f"Their budget is {max_budget} USD, and target workload is {target_workload}. "
+                                "CRITICAL INSTRUCTION: If the user's request is vague or does not specify exact CPU/GPU models, YOU MUST immediately decide on a specific, realistic CPU and GPU combination that fits their budget. "
+                                "Once the exact hardware is decided, search the web to find: 1. CPU/GPU power draw. 2. CPU/GPU bottlenecks. 3. Original MSRP and current market price for that specific hardware.",
+                    expected_output="A raw data summary of the specific CPU/GPU chosen, their power draw, bottlenecks, and pricing.",
                     agent=scout_agent
                 )
 
@@ -165,7 +166,8 @@ if st.button("Initialize Diagnostics", type="primary"):
                 vanguard_crew = Crew(
                     agents=[scout_agent, consultant_agent],
                     tasks=[scout_task, consultant_task],
-                    process=Process.sequential
+                    process=Process.sequential,
+                    max_rpm=10 # <--- THE HOLY GRAIL GLOBAL SPEED LIMIT FIX
                 )
                 
                 result = vanguard_crew.kickoff()
