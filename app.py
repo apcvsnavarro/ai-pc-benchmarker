@@ -70,7 +70,7 @@ def render_price_fluctuation_chart(msrp, current):
 with st.sidebar:
     st.markdown("## ⚡ V.A.N.G.U.A.R.D.")
     
-    if st.button("➕ New Diagnostic", use_container_width=True, type="primary"):
+    if st.button("🏠 Home Dashboard", use_container_width=True, type="secondary"):
         st.session_state.current_run = None
         st.rerun()
 
@@ -88,7 +88,6 @@ with st.sidebar:
     st.markdown("### 🗂️ Recents")
     if st.session_state.diagnostic_history:
         for i, record in enumerate(reversed(st.session_state.diagnostic_history)):
-            # UPDATED: Now uses the AI-generated Title instead of the raw prompt!
             if st.button(f"📌 {record['title']}", key=f"hist_{i}", use_container_width=True):
                 st.session_state.current_run = record
                 st.rerun()
@@ -122,7 +121,8 @@ if st.button("Initialize Diagnostics", type="primary"):
                     verbose=True,
                     allow_delegation=False,
                     tools=[search_tool],
-                    llm="gemini/gemini-2.5-flash"
+                    llm="gemini/gemini-2.5-flash",
+                    max_iter=3 # <--- SPEED LIMIT FIX APPLIED HERE
                 )
 
                 consultant_agent = Agent(
@@ -131,7 +131,8 @@ if st.button("Initialize Diagnostics", type="primary"):
                     backstory="You are a senior IT hardware architect. You do not hallucinate math. You provide brutally honest compatibility diagnostics.",
                     verbose=True,
                     allow_delegation=False,
-                    llm="gemini/gemini-2.5-flash"
+                    llm="gemini/gemini-2.5-flash",
+                    max_iter=3 # <--- SPEED LIMIT FIX APPLIED HERE
                 )
 
                 scout_task = Task(
@@ -142,7 +143,6 @@ if st.button("Initialize Diagnostics", type="primary"):
                     agent=scout_agent
                 )
 
-                # UPDATED: Instructed to generate a Report Title
                 consultant_task = Task(
                     description=f"Using the scout's data, write a detailed 4-part diagnostic report for: '{user_input}'.\n\n"
                                 f"Evaluate if this build can handle '{target_workload}' and if it makes sense for a budget of {max_budget} USD.\n\n"
@@ -173,7 +173,6 @@ if st.button("Initialize Diagnostics", type="primary"):
 
             raw_text = str(result)
             
-            # UPDATED: Regex safely extracts the AI's custom title
             try: report_title = re.search(r"Report Title:\s*(.*)", raw_text).group(1).strip()
             except: report_title = f"{user_input[:15]}... Build"
 
@@ -191,7 +190,7 @@ if st.button("Initialize Diagnostics", type="primary"):
 
             new_record = {
                 "prompt": user_input,
-                "title": report_title, # Saves the title to memory
+                "title": report_title,
                 "power": power_val,
                 "bottleneck": bottleneck_val,
                 "msrp": msrp_val,
@@ -214,7 +213,6 @@ if st.session_state.current_run:
     
     st.markdown("---")
     
-    # NEW: Displays the AI-generated title prominently at the top of the dashboard!
     st.header(f"🖥️ {run['title']}")
     
     col1, col2 = st.columns(2)
