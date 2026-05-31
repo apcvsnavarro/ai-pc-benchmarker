@@ -10,6 +10,8 @@ This project utilizes a sequential agent architecture to process user requests, 
 ```mermaid
 graph TD
     %% Flowchart Nodes
+    Start([🚀 Start Diagnostic])
+    
     A[🧑‍💻 User Input - Streamlit UI]
     
     subgraph Multi-Agent System
@@ -28,8 +30,11 @@ graph TD
         I[🗂️ Session Memory Recents]
         J[📥 Downloadable TXT Report]
     end
+    
+    Finish([✅ End Process])
 
     %% Routing / Connections
+    Start --> A
     A -->|Target Workload, Budget, Hardware| B
     B -->|Assigns Data Gathering| C
     C <-->|Searches real-time benchmarks| D
@@ -39,15 +44,21 @@ graph TD
     G -->|Routes specific integers| H
     G -->|Saves state| I
     G -->|Formats Markdown| J
+    
+    H --> Finish
+    I --> Finish
+    J --> Finish
 
     %% Define Styles (Safe Method)
     classDef userNode fill:#2b3035,stroke:#4caf50,stroke-width:2px,color:#fff
     classDef agentNode fill:#1e1e1e,stroke:#2196f3,stroke-width:2px,color:#fff
     classDef apiNode fill:#333333,stroke:#ff9800,stroke-width:2px,color:#fff
     classDef uiNode fill:#2b3035,stroke:#9c27b0,stroke-width:2px,color:#fff
+    classDef terminalNode fill:#d32f2f,stroke:#ff5252,stroke-width:2px,color:#fff
 
     %% Apply Styles (Safe Method)
     class A userNode
     class B,C,E agentNode
     class D,F apiNode
     class G,H,I,J uiNode
+    class Start,Finish terminalNode
